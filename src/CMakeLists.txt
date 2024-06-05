@@ -8,13 +8,16 @@ add_executable(${ProjectName}
 # Include directories to search for includes for this (main) target
 target_include_directories(${ProjectName} PRIVATE
 	${CMAKE_CURRENT_LIST_DIR}
+	${CMAKE_SOURCE_DIR}/lib/BMP3_SensorAPI
+	${CMAKE_SOURCE_DIR}/lib/BMP3_common
 )
-
 
 # Include libraries to link for this (main) target
 target_link_libraries(${ProjectName}
 	pico_stdlib	# standard pico sdk lib
 	FreeRTOS-Kernel-Heap4	# heap 4 method for FreeRTOS kernel
+	BMP3_lib
+	BMP3_common_lib
 )
 
 ###### Target specific config
@@ -38,7 +41,6 @@ target_compile_definitions(${ProjectName} PRIVATE
 	PICO_DEFAULT_UART_TX_PIN=16
 	PICO_DEFAULT_UART_RX_PIN=17
 )
-
 
 # Add extra useful outputs from pico sdk
 pico_add_extra_outputs(${ProjectName})
