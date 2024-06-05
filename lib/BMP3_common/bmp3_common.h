@@ -9,6 +9,7 @@ extern "C" {
 #endif /*__cplusplus */
 
 #include "bmp3.h"
+#include "hardware/i2c.h"   // pico i2c interface
 
 /*!
  *  @brief Function to select the interface between SPI and I2C.
@@ -105,11 +106,18 @@ void bmp3_delay_us(uint32_t period, void *intf_ptr);
 void bmp3_check_rslt(const char api_name[], int8_t rslt);
 
 /*!
- *  @brief Deinitializes coines platform
+ *  @brief Deinitializes default i2c bus
  *
  *  @return void.
  */
-void bmp3_coines_deinit(void);
+void ace_deinit_i2c_bus();
+
+/*!
+ *  @brief Initializes default i2c bus
+ *
+ *  @return void.
+ */
+void ace_init_i2c_bus(uint8_t speed);
 
 #ifdef __cplusplus
 }

@@ -16,4 +16,5 @@ target_include_directories(${BMP3CommonLibName} PRIVATE
 # Link libraries
 target_link_libraries(${BMP3CommonLibName}
     pico_stdlib
+    hardware_i2c
 )
