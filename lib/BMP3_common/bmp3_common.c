@@ -43,12 +43,23 @@ BMP3_INTF_RET_TYPE bmp3_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t l
     // (void)intf_ptr;
 
     // return coines_read_i2c(COINES_I2C_BUS_0, device_addr, reg_addr, reg_data, (uint16_t)len);
-    
-    (void)reg_addr; // unused
 
+    uint8_t rslt;
     uint8_t device_addr = *(uint8_t*)intf_ptr;
 
-    return i2c_read_blocking(i2c_default, device_addr, reg_data, len, false);
+    // configure read at register addr
+    rslt = i2c_write_blocking(i2c_default, device_addr, &reg_addr, 1, true);   // true to retain bus ctrl since another transaction will be made
+    if (rslt == PICO_ERROR_GENERIC) {
+        return BMP3_E_COMM_FAIL;
+    }
+
+    // read actual data
+    rslt = i2c_read_blocking(i2c_default, device_addr, reg_data, len, false);
+    if (rslt == PICO_ERROR_GENERIC) {
+        return BMP3_E_COMM_FAIL;
+    }
+
+    return BMP3_OK;
 }
 
 /*!
@@ -62,13 +73,22 @@ BMP3_INTF_RET_TYPE bmp3_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uin
     // (void)intf_ptr;
 
     // return coines_write_i2c(COINES_I2C_BUS_0, device_addr, reg_addr, (uint8_t *)reg_data, (uint16_t)len);
-    
 
-    (void)reg_addr; // unused
-
+    uint8_t rslt;
     uint8_t device_addr = *(uint8_t*)intf_ptr;
 
-    return i2c_write_blocking(i2c_default, device_addr, reg_data, len, false);
+    // configure write at register addr
+    rslt = i2c_write_blocking(i2c_default, device_addr, &reg_addr, 1, true);
+    if (rslt == PICO_ERROR_GENERIC) {
+        return BMP3_E_COMM_FAIL;
+    }
+
+    rslt = i2c_write_blocking(i2c_default, device_addr, reg_data, len, false);
+    if (rslt == PICO_ERROR_GENERIC) {
+        return BMP3_E_COMM_FAIL;
+    }
+
+    return rslt;
 }
 
 /*!
@@ -243,6 +263,7 @@ BMP3_INTF_RET_TYPE bmp3_interface_init(struct bmp3_dev *bmp3, uint8_t intf)
         /* Bus configuration : I2C */
         if (intf == BMP3_I2C_INTF)
         {
+            printf("NOTE: Configuring I2C mode for BMP...\n");
             dev_addr = BMP3_ADDR_I2C_PRIM;  // 0x76 i2c dev address (primary - SDO to GND)
             bmp3->read = bmp3_i2c_read;
             bmp3->write = bmp3_i2c_write;
@@ -250,7 +271,7 @@ BMP3_INTF_RET_TYPE bmp3_interface_init(struct bmp3_dev *bmp3, uint8_t intf)
             bmp3->delay_us = bmp3_delay_us;
             bmp3->intf_ptr = &dev_addr;
 
-            ace_init_i2c_bus(I2C_SPEED_HZ);
+            ace_init_i2c_bus();
         }
         /* Bus configuration : SPI */
         else if (intf == BMP3_SPI_INTF)
@@ -284,9 +305,13 @@ void ace_deinit_i2c_bus()
     i2c_deinit(i2c_default);
 }
 
+void ace_init_i2c_bus() {
+#if !defined(i2c_default) || !defined(PICO_DEFAULT_I2C_SDA_PIN) || !defined(PICO_DEFAULT_I2C_SCL_PIN)
+#warning No I2C pins found
+    puts("Default I2C pins were not defined");
+#endif
 
-void ace_init_i2c_bus(uint8_t speed) {
-    i2c_init(i2c_default, speed);
+    i2c_init(i2c_default, I2C_SPEED_HZ);
     
     // set sda, scl pins to i2c operation mode
     gpio_set_function(PICO_DEFAULT_I2C_SDA_PIN, GPIO_FUNC_I2C);

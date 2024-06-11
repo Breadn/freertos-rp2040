@@ -36,10 +36,14 @@ target_compile_options(${ProjectName} PUBLIC
 pico_enable_stdio_usb(${ProjectName} 0)
 pico_enable_stdio_uart(${ProjectName} 1)
 
-# Change default pico uart tx/rx pins (from pico sdk)
+# ACE 3.0 specific board configuration
 target_compile_definitions(${ProjectName} PRIVATE
+	# Change default pico uart tx/rx pins (from pico sdk)
 	PICO_DEFAULT_UART_TX_PIN=16
 	PICO_DEFAULT_UART_RX_PIN=17
+
+	# Change default i2c pins
+	# PICO_DEFAULT_I2C_INSTANCE=i2c1
 )
 
 # Add extra useful outputs from pico sdk

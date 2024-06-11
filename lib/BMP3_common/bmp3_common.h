@@ -117,7 +117,7 @@ void ace_deinit_i2c_bus();
  *
  *  @return void.
  */
-void ace_init_i2c_bus(uint8_t speed);
+void ace_init_i2c_bus();
 
 #ifdef __cplusplus
 }
