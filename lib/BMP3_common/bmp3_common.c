@@ -77,18 +77,11 @@ BMP3_INTF_RET_TYPE bmp3_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uin
     uint8_t rslt;
     uint8_t device_addr = *(uint8_t*)intf_ptr;
 
-    // configure write at register addr
-    rslt = i2c_write_blocking(i2c_default, device_addr, &reg_addr, 1, true);
-    if (rslt == PICO_ERROR_GENERIC) {
-        return BMP3_E_COMM_FAIL;
-    }
+    printf("IMPLEMENT THIS (Did i2c write!)\n");
 
-    rslt = i2c_write_blocking(i2c_default, device_addr, reg_data, len, false);
-    if (rslt == PICO_ERROR_GENERIC) {
-        return BMP3_E_COMM_FAIL;
-    }
+    // TODO: implement
 
-    return rslt;
+    return BMP3_E_COMM_FAIL;
 }
 
 /*!

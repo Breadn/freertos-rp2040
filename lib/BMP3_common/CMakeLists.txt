@@ -1,4 +1,4 @@
-# CMake for common build
+# CMake for BMP3 common build
 
 SET(BMP3CommonLibName BMP3_common_lib)
 
