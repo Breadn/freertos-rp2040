@@ -33,7 +33,7 @@ target_compile_options(${ProjectName} PUBLIC
 	)
 
 # Enable pico uart output (from pico sdk)
-pico_enable_stdio_usb(${ProjectName} 0)
+pico_enable_stdio_usb(${ProjectName} 1)
 pico_enable_stdio_uart(${ProjectName} 1)
 
 # ACE 3.0 specific board configuration

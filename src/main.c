@@ -8,6 +8,12 @@
 #include "bmp5_common.h"    // bmp5 dev IO interface
 
 /******************************************************************************/
+/*!         Static Variable Declaration                                       */
+
+struct bmp5_dev dev;
+struct bmp5_osr_odr_press_config osr_odr_press_cfg = { 0 };
+
+/******************************************************************************/
 /*!         Static Function Declaration                                       */
 
 /*!
@@ -62,29 +68,31 @@ int main() {
 static void initSensorHardware() {
     /* BMP5 init */
     int8_t rslt;
-    struct bmp5_dev dev;
-    struct bmp5_osr_odr_press_config osr_odr_press_cfg = { 0 };
 
     /* Interface reference is given as a parameter
      * For I2C : BMP5_I2C_INTF
      * For SPI : BMP5_SPI_INTF
      */
+    printf("> Initialize interface\n");
     rslt = bmp5_interface_init(&dev, BMP5_I2C_INTF);
     bmp5_error_codes_print_result("bmp5_interface_init", rslt);
 
     if (rslt == BMP5_OK)
     {
+        printf("> Initialize sensor\n");
         rslt = bmp5_init(&dev);
         bmp5_error_codes_print_result("bmp5_init", rslt);
 
         if (rslt == BMP5_OK)
         {
+            printf("> Configure sensor\n");
             rslt = set_config(&osr_odr_press_cfg, &dev);
             bmp5_error_codes_print_result("set_config", rslt);
         }
 
         if (rslt == BMP5_OK)
         {
+            printf("> Get sensor data\n");
             rslt = get_sensor_data(&osr_odr_press_cfg, &dev);
             bmp5_error_codes_print_result("get_sensor_data", rslt);
         }
@@ -95,10 +103,12 @@ static void initSensorHardware() {
 
 
 static void workTask(void *pvParameters) {
+    int8_t rslt;
 
     while (1) {
         vTaskDelay(1000);
-        printf("hello, world!\n");
+        rslt = get_sensor_data(&osr_odr_press_cfg, &dev);
+        bmp5_error_codes_print_result("get_sensor_data", rslt);
     }
 }
 
@@ -173,18 +183,18 @@ static int8_t get_sensor_data(const struct bmp5_osr_odr_press_config *osr_odr_pr
     uint8_t int_status;
     struct bmp5_sensor_data sensor_data;
 
-    printf("\nOutput :\n\n");
-    printf("Data, Pressure (Pa), Temperature (deg C)\n");
+    // printf("\nOutput :\n\n");
+    // printf("Data, Pressure (Pa), Temperature (deg C)\n");
 
     while (idx < 50)
     {
         rslt = bmp5_get_interrupt_status(&int_status, dev);
-        bmp5_error_codes_print_result("bmp5_get_interrupt_status", rslt);
+        // bmp5_error_codes_print_result("bmp5_get_interrupt_status", rslt);
 
         if (int_status & BMP5_INT_ASSERTED_DRDY)
         {
             rslt = bmp5_get_sensor_data(&sensor_data, osr_odr_press_cfg, dev);
-            bmp5_error_codes_print_result("bmp5_get_sensor_data", rslt);
+            // bmp5_error_codes_print_result("bmp5_get_sensor_data", rslt);
 
             if (rslt == BMP5_OK)
             {
@@ -192,7 +202,7 @@ static int8_t get_sensor_data(const struct bmp5_osr_odr_press_config *osr_odr_pr
                 printf("%d, %lu, %ld\n", idx, (long unsigned int)sensor_data.pressure,
                        (long int)sensor_data.temperature);
 #else
-                printf("%d, %f, %f\n", idx, sensor_data.pressure, sensor_data.temperature);
+                printf("%2.2f, %2.2f\n", sensor_data.pressure, sensor_data.temperature);
 #endif
 
                 idx++;

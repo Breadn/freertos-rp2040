@@ -30,6 +30,9 @@
 /*! Variable that holds the I2C device address or SPI chip selection */
 static uint8_t dev_addr;
 
+/*! Variable that reused for holding temporary i2c byte writes */
+// static uint8_t data_byte;
+
 /******************************************************************************/
 /*!                User interface functions                                   */
 
@@ -38,7 +41,7 @@ static uint8_t dev_addr;
  */
 BMP5_INTF_RET_TYPE bmp5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    uint8_t rslt;
+    int8_t rslt;
     uint8_t device_addr = *(uint8_t*)intf_ptr;
 
     // configure read at register addr
@@ -53,6 +56,8 @@ BMP5_INTF_RET_TYPE bmp5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t l
         return BMP5_E_COM_FAIL;
     }
 
+    // printf("Did i2c read!\n");
+
     return BMP5_OK;
 }
 
@@ -61,14 +66,28 @@ BMP5_INTF_RET_TYPE bmp5_i2c_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t l
  */
 BMP5_INTF_RET_TYPE bmp5_i2c_write(uint8_t reg_addr, const uint8_t *reg_data, uint32_t length, void *intf_ptr)
 {
-    uint8_t rslt;
+    int8_t rslt;
     uint8_t device_addr = *(uint8_t*)intf_ptr;
 
-    printf("IMPLEMENT THIS (Did i2c write!)\n");
+    // allocate stack storage for data with prepended reg addr
+    uint8_t databuf[length + 1];
+    databuf[0] = reg_addr;
+    for (int i=0; i<length; ++i)
+        databuf[i+1] = *(reg_data+i);
 
-    // TODO: Implement
+    // printf(">> DEBUG <<\n");
+    // printf("data length: %d\n", length);
+    // printf("reg_addr: %x\t1st_data byte:%x\n", reg_addr, *reg_data);
+    // printf("databuf[0]: %x\tdatabuf[1]: %x\n\n", databuf[0], databuf[1]);
 
-    return BMP5_E_COM_FAIL;
+    rslt = i2c_write_blocking(i2c_default, device_addr, (const uint8_t*) &databuf, length+1, false);
+    if (rslt == PICO_ERROR_GENERIC || rslt != length+1) {
+        return BMP5_E_COM_FAIL;
+    }
+
+    // printf("Did i2c write!\n");
+
+    return BMP5_OK;
 }
 
 /*!
