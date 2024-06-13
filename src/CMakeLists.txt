@@ -1,8 +1,21 @@
 # bottom level cmake file for source building
 
+# Set source and header files
+set(SOURCES 
+	main.c
+	bmp5_internal.c
+)
+set(HEADERFILES 
+	bmp5_internal.h	
+)
+set(HEADERS)
+FOREACH(FILE ${HEADERFILES})
+	list(APPEND HEADERS ${CMAKE_SOURCE_DIR}/inc/${FILE})
+ENDFOREACH()
+
 # Add an executable target to be generated
 add_executable(${ProjectName}
-	main.c
+	${SOURCES} ${HEADERS}
 )
 
 # Include directories to search for includes for this (main) target
@@ -10,6 +23,7 @@ target_include_directories(${ProjectName} PRIVATE
 	${CMAKE_CURRENT_LIST_DIR}
 	${CMAKE_SOURCE_DIR}/lib/BMP5_SensorAPI
 	${CMAKE_SOURCE_DIR}/lib/BMP5_common
+	${CMAKE_SOURCE_DIR}/inc
 )
 
 # Include libraries to link for this (main) target
@@ -25,13 +39,14 @@ target_link_libraries(${ProjectName}
 target_compile_options(${ProjectName} PUBLIC
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wall>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wextra>
+	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Werror>
+	$<$<COMPILE_LANG_AND_ID:C,Clang>:-Weverything>
+	## No warning below (loosen check strictness) ##
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-sign-compare>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-unused-function>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-unused-parameter>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-type-limits>			# rp2040 port has too many of these...
-	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Werror>
-	$<$<COMPILE_LANG_AND_ID:C,Clang>:-Weverything>
-	)
+)
 
 # Enable pico uart output (from pico sdk)
 pico_enable_stdio_usb(${ProjectName} 1)

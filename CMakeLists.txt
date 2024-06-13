@@ -23,5 +23,6 @@ project(${ProjectName})
 pico_sdk_init()	# (fn obtained from pico_sdk_import.cmake)
 
 # Add subdirectories for CMake to search during build generation
-add_subdirectory(src)
+add_subdirectory(inc)
 add_subdirectory(lib)
+add_subdirectory(src)
