@@ -26,6 +26,7 @@ target_compile_options(${ProjectName} PUBLIC
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wall>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wextra>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-sign-compare>
+	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-unused-function>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-unused-parameter>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-type-limits>			# rp2040 port has too many of these...
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Werror>
