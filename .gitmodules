@@ -8,3 +8,6 @@
 [submodule "lib/BMP5_SensorAPI"]
 	path = lib/BMP5_SensorAPI
 	url = https://github.com/boschsensortec/BMP5_SensorAPI.git
+[submodule "lib/fatfs"]
+	path = lib/fatfs
+	url = https://github.com/abbrev/fatfs.git
