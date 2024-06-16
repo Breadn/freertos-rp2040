@@ -203,63 +203,63 @@ int8_t set_fifo_config(struct bmp5_fifo *fifo, struct bmp5_dev *dev)
     return rslt;
 }
 
-int8_t get_fifo_data(struct bmp5_fifo *fifo, struct bmp5_dev *dev)
+int8_t get_fifo_data(struct bmp5_fifo *fifo, struct bmp5_dev *dev, struct bmp5_sensor_data sensor_data[])
 {
     int8_t rslt = 0;
-    uint8_t idx = 0;
-    uint8_t loop = 0;
+    // uint8_t idx = 0;
+    // uint8_t loop = 0;
     uint8_t int_status;
     uint8_t fifo_buffer[BMP5_FIFO_DATA_BUFFER_SIZE];
-    struct bmp5_sensor_data sensor_data[BMP5_FIFO_P_FRAME_COUNT] = { { 0 } };   // 32 frames for pressure
 
-    printf("\nOutput :\n");
+    // printf("\nOutput :\n");
 
-    while (loop < LOOP_COUNT)
+ 
+    rslt = bmp5_get_interrupt_status(&int_status, dev);
+    bmp5_error_codes_print_result("bmp5_get_interrupt_status", rslt);
+
+    /* Only receive data when fifo full */
+    if (int_status & BMP5_INT_ASSERTED_FIFO_FULL)
     {
-        rslt = bmp5_get_interrupt_status(&int_status, dev);
-        bmp5_error_codes_print_result("bmp5_get_interrupt_status", rslt);
+        fifo->length = BMP5_FIFO_DATA_USER_LENGTH;
+        fifo->data = fifo_buffer;
 
-        if (int_status & BMP5_INT_ASSERTED_FIFO_FULL)
+        // printf("\nIteration: %d\n", loop);
+        // printf("Each fifo frame contains 6 bytes of data\n");
+        // printf("Fifo data bytes requested: %d\n", fifo->length);
+
+        /* Obtain data into fifo struct */
+        rslt = bmp5_get_fifo_data(fifo, dev);
+        bmp5_error_codes_print_result("bmp5_get_fifo_data", rslt);
+
+        // printf("Fifo data bytes available: %d\n", fifo->length);
+        // printf("Fifo frames available: %d\n", fifo->fifo_count);
+
+        /* Extract data into sensor_data struct */
+        if (rslt == BMP5_OK)
         {
-            fifo->length = BMP5_FIFO_DATA_USER_LENGTH;
-            fifo->data = fifo_buffer;
+            rslt = bmp5_extract_fifo_data(fifo, sensor_data);
+            bmp5_error_codes_print_result("bmp5_extract_fifo_data", rslt);
 
-            printf("\nIteration: %d\n", loop);
-            printf("Each fifo frame contains 6 bytes of data\n");
-            printf("Fifo data bytes requested: %d\n", fifo->length);
+//             if (rslt == BMP5_OK)
+//             {
+//                 // printf("\nData, Pressure (Pa), Temperature (deg C)\n");
 
-            rslt = bmp5_get_fifo_data(fifo, dev);
-            bmp5_error_codes_print_result("bmp5_get_fifo_data", rslt);
-
-            printf("Fifo data bytes available: %d\n", fifo->length);
-            printf("Fifo frames available: %d\n", fifo->fifo_count);
-
-            if (rslt == BMP5_OK)
-            {
-                rslt = bmp5_extract_fifo_data(fifo, sensor_data);
-                bmp5_error_codes_print_result("bmp5_extract_fifo_data", rslt);
-
-                if (rslt == BMP5_OK)
-                {
-                    printf("\nData, Pressure (Pa), Temperature (deg C)\n");
-
-                    for (idx = 0; idx < fifo->fifo_count; idx++)
-                    {
-#ifdef BMP5_USE_FIXED_POINT
-                        printf("%d, %lu, %ld\n",
-                               idx,
-                               (long unsigned int)sensor_data[idx].pressure,
-                               (long int)sensor_data[idx].temperature);
-#else
-                        printf("%d, %f, %f\n", idx, sensor_data[idx].pressure, sensor_data[idx].temperature);
-#endif
-                    }
-                }
-
-                loop++;
-            }
+//                 for (idx = 0; idx < fifo->fifo_count; idx++)
+//                 {
+// #ifdef BMP5_USE_FIXED_POINT
+//                     printf("%d, %lu, %ld\n",
+//                             idx,
+//                             (long unsigned int)sensor_data[idx].pressure,
+//                             (long int)sensor_data[idx].temperature);
+// #else
+//                     printf("%d, %f, %f\n", idx, sensor_data[idx].pressure, sensor_data[idx].temperature);
+// #endif
+//                 }
+//             }
         }
+
+        return rslt;
     }
 
-    return rslt;
+    return BMP5_DATA_NOT_READY;
 }
