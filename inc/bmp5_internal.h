@@ -6,12 +6,13 @@
 /******************************************************************************/
 /*!            Macros                                                         */
 
-#define LOOP_COUNT                  UINT8_C(20)
 #define BMP5_FIFO_DATA_BUFFER_SIZE  UINT8_C(96)
 #define BMP5_FIFO_DATA_USER_LENGTH  UINT8_C(96)
 #define BMP5_FIFO_P_T_FRAME_COUNT   UINT8_C(16)
 #define BMP5_FIFO_T_FRAME_COUNT     UINT8_C(32)
 #define BMP5_FIFO_P_FRAME_COUNT     UINT8_C(32)
+
+#define BMP5_DATA_NOT_READY         UINT8_C(0x1)
 
 
 /******************************************************************************/
@@ -55,4 +56,4 @@ int8_t set_fifo_config(struct bmp5_fifo *fifo, struct bmp5_dev *dev);
  *
  *  @return Status of execution.
  */
-int8_t get_fifo_data(struct bmp5_fifo *fifo, struct bmp5_dev *dev);
+int8_t get_fifo_data(struct bmp5_fifo *fifo, struct bmp5_dev *dev, struct bmp5_sensor_data sensor_data[]);
