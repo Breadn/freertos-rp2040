@@ -2,7 +2,7 @@
 
 ## ACE 3.0 Development
 
- because i need/want/should probably figure this stuff out
+Currently developing on Raspberry Pi Pico W instead of original ACE 2.0
 
 
 ## Known Issues
