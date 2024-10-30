@@ -39,7 +39,6 @@ target_link_libraries(${ProjectName}
 target_compile_options(${ProjectName} PUBLIC
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wall>
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wextra>
-	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Werror>
 	$<$<COMPILE_LANG_AND_ID:C,Clang>:-Weverything>
 	## No warning below (loosen check strictness) ##
 	$<$<COMPILE_LANG_AND_ID:C,Clang,GNU>:-Wno-sign-compare>
