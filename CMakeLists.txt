@@ -18,10 +18,12 @@ include(${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_i
 
 # Define project
 project(${ProjectName})
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 # Init rpi sdk
 pico_sdk_init()	# (fn obtained from pico_sdk_import.cmake)
 
 # Add subdirectories for CMake to search during build generation
-add_subdirectory(lib)
+#add_subdirectory(lib)
 add_subdirectory(src)

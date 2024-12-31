@@ -1,253 +1,153 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
-#include "pico/stdlib.h"
 
 #include <stdio.h>
-#include <stdlib.h>
+#include "pico/stdlib.h"
 
 /* library includes 
     (visible from 'target_include_directories' in this dir's CMake file)
 */
-#include "bmp5_internal.h"  // bmp5 internal API
+
 
 /******************************************************************************/
-/*!            Macros                                        */
+/*!            Defines                                                        */
 
 #define SECOND_US       (uint32_t)  1000000
+#define SECOND_MS       (uint32_t)  1000
 #define DEBUG_PRINT_CT  (uint8_t)   5
+#define TASK_STACK_SIZE (uint8_t)   200
+#define NUM_TASKS                   4
 
 /******************************************************************************/
-/*!         Static Variable Declaration                                       */
+/*!         Global Synchronization Variables                                  */
+SemaphoreHandle_t xTestMutex;
+SemaphoreHandle_t xBeginSemaphore;  // used to synchronize main task's children
 
-struct bmp5_dev dev;
-struct bmp5_fifo fifo;
-struct bmp5_osr_odr_press_config osr_odr_press_cfg = { 0 };
 
-/* Semaphores */
-SemaphoreHandle_t ct_Semaphore;    // compute task
-SemaphoreHandle_t st_Semaphore;    // store task
 
-/* Shared data */
-float ct_buf[BMP5_FIFO_P_FRAME_COUNT];
-float st_buf[BMP5_FIFO_P_FRAME_COUNT];
 
 /******************************************************************************/
-/*!         Static Function Declaration                                       */
+/*!         Function Declarations                                             */
 
-static void initSensorHardware();
-static void sampleTask(void *pvParameters);
-static void computeTask(void *pvParameters);
-static void storeTask(void *pvParameters);
+
 
 static void errorLoop(const char* e_msg);
+
+static void LittleSemaphoreExample();
+static void xLittleSemaphoreMainTask(void *pvParameters);
+
+static void workerThreadA(void *pvParameters);
+static void workerThreadB(void *pvParameters);
+static void workerThreadC(void *pvParameters);
+static void workerThreadD(void *pvParameters);
+
+extern int RunRendezvousExample();
+
 
 /******************************************************************************/
 /*!         Main application                                                  */
 
 int main() {
-    // init gpio pins
+    // Initializations
     stdio_init_all();
+    int begin;
+    scanf("%x", (unsigned int *)&begin);  // wait for reply before beginning
 
-    // init sensor hardware
-    initSensorHardware();
-
-    // Semaphore creations
-    ct_Semaphore = xSemaphoreCreateMutex();
-    st_Semaphore = xSemaphoreCreateMutex();
-    if ((ct_Semaphore == NULL) || (st_Semaphore == NULL)) {
-        errorLoop("Semaphore creation: NORAM");
-    }
-
-    // Task creations
-    xTaskCreate(sampleTask, "sampleTask", 256, NULL, 2, NULL);
-    xTaskCreate(computeTask, "computetask", 256, NULL, 1, NULL);
-    xTaskCreate(storeTask, "storeTask", 256, NULL, 1, NULL);
+    xBeginSemaphore = xSemaphoreCreateCounting(1, 1);
+    if (xBeginSemaphore == NULL)
+        errorLoop("Could not create xBeginMutex");
     
-    // Start rtos scheduler
-    vTaskStartScheduler();
+    // Create Main task
+    if (begin != 0) {
+        printf("Creating Main Task...\n");
+        TaskHandle_t xMainTask;
+        xMainTask = (TaskHandle_t)xTaskCreate(
+            xLittleSemaphoreMainTask,
+            "MainThread",
+            PICO_STACK_SIZE,
+            (void *) NULL,
+            tskIDLE_PRIORITY,
+            &xMainTask);
 
-    for (;;) {
-        sleep_us(SECOND_US);
-        printf("Not enough RAM to start RTOS!\n");
-    };
+        // Start rtos scheduler
+        printf("Starting Scheduler!\n");
+        vTaskStartScheduler();
+
+        errorLoop("Not enough RAM to start RTOS!");
+    }
+    printf("Aborting program execution...terminating\n");
 
     return 0;
 }
 
 
 /******************************************************************************/
-/*!         Function Definition                                               */
-
-// TODO: accept pointer to device to be init...or malloc device object and return pointer to that
-static void initSensorHardware() {
-    /* BMP5 init */
-    int8_t rslt;
-
-    /* Interface reference is given as a parameter
-     * For I2C : BMP5_I2C_INTF
-     * For SPI : BMP5_SPI_INTF
-     */
-    printf("> Initialize interface\n");
-    rslt = bmp5_interface_init(&dev, BMP5_I2C_INTF);
-    bmp5_error_codes_print_result("bmp5_interface_init", rslt);
-
-    if (rslt == BMP5_OK)
-    {
-        printf("> Initialize sensor\n");
-        rslt = bmp5_init(&dev);
-        bmp5_error_codes_print_result("bmp5_init", rslt);
-
-        if (rslt == BMP5_OK)
-        {
-            printf("> Configure sensor\n");
-            rslt = set_fifo_config(&fifo, &dev);
-            bmp5_error_codes_print_result("set_config", rslt);
-        }
-    }
-
-    busy_wait_us_32(SECOND_US);
-    printf("*** END BMP5 INIT...\n");
-}
-
-
-static void sampleTask(void *pvParameters) {
-    // this task must be responsible for sampling fifo for data
-    // then queueing/sharing data with other tasks to resolve
-    // read duplication issue
-
-    int8_t rslt;
-    struct bmp5_sensor_data data[BMP5_FIFO_P_FRAME_COUNT] = { { 0 } };   // 32 frames for pressure
-
-    for (;;) {
-        printf("Sample task running...\n");
-        vTaskDelay(500);
-        rslt = get_fifo_data(&fifo, &dev, data);
-
-        if (rslt == BMP5_OK) {
-            uint8_t i;
-            uint8_t didWriteFlag = 0;
-
-            // copy data to shared buffers
-            while (didWriteFlag != 0x3) {
-                if (!(didWriteFlag & 0x1)) {
-                    // ct_semaphore
-                    if (ct_Semaphore != NULL) {
-                        if (xSemaphoreTake(ct_Semaphore, (TickType_t) 10) == pdTRUE) {
-                            printf("sampleTask: Writing ct_buf...\n");
-
-                            // copy data to ct_buf
-                            for (i=0; i<BMP5_FIFO_P_FRAME_COUNT && i<fifo.fifo_count; ++i)
-                                ct_buf[i] = data[i].pressure;
-
-                            xSemaphoreGive(ct_Semaphore);
-                            didWriteFlag |= 0x1;
-                        } else {
-                            printf("sampleTask: could not write ct_buf, retrying...\n");
-                        }
-                    }
-                    // ct_semaphore
-                }
-                if (!(didWriteFlag & 0x2)) {
-                    // st_semphr
-                    if (st_Semaphore != NULL) {
-                        if (xSemaphoreTake(st_Semaphore, (TickType_t) 10) == pdTRUE) {
-                            printf("sampleTask: Writing st_buf...\n");
-
-                            // copy data to st_buf
-                            for (i=0; i<BMP5_FIFO_P_FRAME_COUNT && i<fifo.fifo_count; ++i)
-                                st_buf[i] = data[i].pressure;
-
-                            xSemaphoreGive(st_Semaphore);
-                            didWriteFlag |= 0x2;
-                        } else {
-                            printf("sampleTask: could not write st_buf, retrying...\n");
-                        }
-                    }
-                    // st_semphr
-                }
-
-            }
-        } else {
-            printf("sampleTask: Data not ready\n");
-        }
-        printf("Sample task complete!\n\n");
-    }
-
-    printf("WARNING: sampleTask exit!\n");
-    vTaskDelete(NULL);
-
-}
-
-
-static void computeTask(void *pvParameters) {
-    for (;;) {
-        vTaskDelay(1000);
-        printf("Compute task running...\n");
-        // ct_semphr
-        if (ct_Semaphore != NULL) {
-            if (xSemaphoreTake(ct_Semaphore, (TickType_t) 10) == pdTRUE) {
-                uint8_t i;
-
-                // consume data
-                printf("Compute task consume: ");
-                for (i=0; i<DEBUG_PRINT_CT; ++i)
-                    printf("\t%2.2f", ct_buf[i]);
-                printf("\n");
-
-                // generate random amount of busy time
-                int randMlt = rand() % 5;
-                vTaskDelay(100*randMlt);
-
-                xSemaphoreGive(ct_Semaphore);
-            } else {
-                printf("computeTask: could not get semaphore\n");
-            }
-        }
-        // ct_semphr
-        printf("Compute task complete!\n\n");
-    }
-    printf("WARNING: computeTask exit!\n");
-    vTaskDelete(NULL);
-}
-
-
-static void storeTask(void *pvParameters) {
-    for (;;) {
-        vTaskDelay(1000);
-        printf("Store task running...\n");
-        // st_semphr
-        if (st_Semaphore != NULL) {
-            if (xSemaphoreTake(st_Semaphore, (TickType_t) 10) == pdTRUE) {
-                uint8_t i;
-
-                // consume data
-                printf("Store task consume: ");
-                for (i=0; i<DEBUG_PRINT_CT; ++i)
-                    printf("\t%2.2f", st_buf[i]);
-                printf("\n");
-
-                // generate random amount of busy time
-                int randMlt = rand() % 5;
-                vTaskDelay(100*randMlt);
-
-                xSemaphoreGive(st_Semaphore);
-            } else {
-                printf("storeTask: could not get semaphore\n");
-            }
-        }
-        // st_semphr
-        printf("Store task complete!\n\n");
-    }
-    printf("WARNING: storeTask exit!\n");
-    vTaskDelete(NULL);
-}
-
+/*!         Function Definitions                                              */
 
 static void errorLoop(const char* e_msg) {
     for (;;) {
-        vTaskDelay(1000);
+        sleep_us(SECOND_US);
         printf(e_msg);
         printf("\n");
     }
+}
+
+static void xLittleSemaphoreMainTask(void *pvParameters) {
+
+    BaseType_t xReturned;
+    TaskHandle_t xHandles[NUM_TASKS];
+    bool spawnRslt = true;
+
+    // Hold begin mutex
+    xSemaphoreTake(xBeginSemaphore, portMAX_DELAY);
+
+    // Init synchronization globals
+    xTestMutex = xSemaphoreCreateMutex();
+    if (xTestMutex == NULL)
+        errorLoop("Could not initialize semaphores\n");
+
+    // Spawn children task to run examples
+    for (int i=0; i<NUM_TASKS; ++i) {
+        char name[20];
+        sprintf(name, "Thread%d", i);
+        xReturned = xTaskCreate(
+            LittleSemaphoreExample,
+            name,
+            PICO_STACK_SIZE,
+            (void *)NULL,   // no parameter
+            tskIDLE_PRIORITY,
+            &xHandles[i]);
+        
+        if (xReturned != pdPASS) {
+            spawnRslt = false;
+            break;
+        }
+        printf("Created child task %s\n", name);
+    }
+
+    if (!spawnRslt) {
+        printf("Failed to create children tasks!\n");
+        for (int i=0; xHandles[i]; ++i) {
+            vTaskDelete(xHandles[i]);
+        }
+    }
+    else {
+        vTaskDelay(100);
+        printf("Starting in 3...\n");
+        vTaskDelay(SECOND_MS*3);
+        printf("Starting!\n");
+        xSemaphoreGive(xBeginSemaphore);    // begin children
+        vTaskSuspend(NULL); // parent is done
+    }
+
+    errorLoop("Did not successfully spawn children task");
+}
+
+static void LittleSemaphoreExample() {
+    printf("Child waiting...\n");
+    xSemaphoreTake(xBeginSemaphore, portMAX_DELAY);
+    xSemaphoreGive(xBeginSemaphore);
+    RunRendezvousExample();
+    errorLoop("Invalid state reached");
 }
